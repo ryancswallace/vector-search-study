@@ -1,0 +1,13 @@
+cff-version: 1.2.0
+message: "If you use Vector Search Study in your work, please cite it using this metadata."
+title: "Vector Search Study"
+abstract: "Benchmarks and analysis of exact vector search algorithms and implementations."
+version: 0.1.0
+authors:
+  - family-names: "Ryan Wallace"
+    email: "ryancswallace@gmail.com"
+repository-code: "https://github.com/ryancswallace/vector-search-study"
+url: "https://ryancswallace.github.io/vector-search-study/"
+license: "MIT"
+keywords:
+  - python
