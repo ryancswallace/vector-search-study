@@ -23,10 +23,6 @@
         "color: .*"
     ],
     "words": [
-        "RyanWallace",
-        "vector_search_study",
-        "vector-search-study",
-        "ryancswallace",
         "actionlint",
         "addopts",
         "aquasec",
@@ -34,6 +30,7 @@
         "attestations",
         "bandit",
         "basedpyright",
+        "benchmatrix",
         "Buildx",
         "charliermarsh",
         "CodeQL",
@@ -102,6 +99,8 @@
         "redhat",
         "runbook",
         "runbooks",
+        "ryancswallace",
+        "RyanWallace",
         "SARIF",
         "Scorecard",
         "sdist",
@@ -115,11 +114,13 @@
         "typetest",
         "uploadartifact",
         "uploadpages",
+        "vector_search_study",
+        "vector-search-study",
         "venv",
         "vivaxy",
         "xfail",
         "yarnpkg",
-        "zizmor",
-        "Zensical"
+        "Zensical",
+        "zizmor"
     ]
 }
