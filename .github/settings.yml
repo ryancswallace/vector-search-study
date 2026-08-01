@@ -6,7 +6,7 @@
 repository:
   description: "Benchmarks and analysis of exact vector search algorithms and implementations."
   homepage: "https://ryancswallace.github.io/vector-search-study/"
-  topics: "python, package, uv, ruff, pytest, mkdocs"
+  topics: "vector-search, kNN, benchmarking, benchmatrix, similarity-search, high-dimensional-search, nearest-neighbor-search, performance-analysis, vector-search-algorithms, vector-search-implementations, vector-search-benchmarks"
   has_issues: true
   has_projects: false
   has_wiki: false
