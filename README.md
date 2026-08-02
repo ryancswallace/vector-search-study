@@ -60,6 +60,13 @@ plus a 12-case small profile. Scalable untimed oracles validate every measured
 cell and persist result digests in raw artifacts. See the
 [benchmark design](docs/explanation/benchmark-design.md) before collecting data.
 
+The research workflow can collect the complete study from a clean revision,
+audit and summarize raw artifacts, render source-backed tables and static
+plots, and run predeclared paired AB/BA experiments under a common benchmark
+identity. Precision pilots and fresh confirmatory samples are kept separate.
+See the [statistical workflow](docs/explanation/statistical-workflow.md) before
+interpreting generated reports.
+
 On Intel macOS, use the `linux/amd64` devcontainer to run CPU PyTorch and every
 other optional backend. See [development](docs/project/development.md) for the
 real-backend and artifact-preserving smoke commands.

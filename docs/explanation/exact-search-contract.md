@@ -31,6 +31,8 @@ accepted only for reference scores indistinguishable at a dtype-scaled
 numerical tolerance; all resolvable ordering differences remain failures.
 
 Index construction, corpus conversion, query normalization, and query tensor
-creation stay outside the timed operation. The current milestone deliberately
-excludes Numba, natural-embedding generation, confirmatory collection, and
-performance claims.
+creation stay outside the timed operation. Confirmatory variants are exposed
+under the same `algorithm_under_test` benchmark identity, so the paired
+collector changes only the selected implementation. The current milestone
+deliberately excludes Numba, natural-embedding generation, and broad
+performance claims beyond the recorded environments.

@@ -110,6 +110,7 @@ nav:
       - Explanation overview: explanation/index.md
       - Exact-search contract: explanation/exact-search-contract.md
       - Benchmark design: explanation/benchmark-design.md
+      - Statistical workflow: explanation/statistical-workflow.md
       - Tooling: explanation/tooling.md
   - Maintainer runbooks:
       - Maintainer runbooks overview: runbooks/index.md

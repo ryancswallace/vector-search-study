@@ -96,4 +96,30 @@ the uv lockfile digest, and a digest over every tracked or non-ignored source
 file, so an exploratory dirty-tree pilot remains identifiable. Use
 `BENCHMARK_RUNS`, `BENCHMARK_ROUNDS`, and
 `BENCHMARK_WARMUP_ROUNDS` to control pilot repetition without changing case
-identity.
+identity. Tail matrices use `BENCHMARK_TAIL_ROUNDS`, which defaults to the 100
+independent call samples required by the evidence policy.
+
+For a clean, complete sequential collection, use:
+
+```bash
+make benchmark-discovery-study \
+  DISCOVERY_OUTPUT=benchmark-results/discovery-001 \
+  BENCHMARK_RUNS=2
+```
+
+The orchestrator refuses a dirty tree, splits every stress workload into its
+own child collection, and writes lifecycle state after each child. Five runs
+are required only when discovery output will itself support formal inference;
+two-run discovery remains suitable for selecting confirmatory questions.
+
+Build the deterministic evidence audit, CSV tables, source-backed PNG/SVG
+figures, chart contracts, and technical Markdown report with:
+
+```bash
+make benchmark-analyze-discovery \
+  DISCOVERY_OUTPUT=benchmark-results/discovery-001
+```
+
+The generated `analysis.json` explicitly labels evidence as exploratory or
+formal-ready. Winner counts and crossover percentages remain descriptive even
+when all collection gates pass; formal comparisons use the paired workflow.

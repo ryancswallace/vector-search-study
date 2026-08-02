@@ -26,3 +26,8 @@ and [Semantic Versioning](https://semver.org/).
 * Add bounded full discovery runners, scalable float64 oracle validation,
     deterministic result digests, cell exclusion manifests, and pilot resource
     records.
+* Add clean-source discovery orchestration, deterministic analysis tables and
+    plots, evidence qualification, and technical report generation.
+* Add predeclared common-identity paired experiments with balanced AB/BA
+    collection, precision planning, fresh-design enforcement, multiplicity
+    control, and confirmatory reports.
