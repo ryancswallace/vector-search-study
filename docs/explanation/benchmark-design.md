@@ -91,9 +91,12 @@ Stress collection requires a filter so only one high-cost workload runs at a
 time. Each successful output directory contains the benchmatrix manifest and
 raw run JSON plus `discovery-plan.json`, which retains excluded cells, and
 `resource-usage.json`, which records elapsed collection time and child-process
-peak resident memory. The plan also records the Git revision and dirty state,
-the uv lockfile digest, and a digest over every tracked or non-ignored source
-file, so an exploratory dirty-tree pilot remains identifiable. Use
+peak resident memory where the platform exposes it. On Windows, the peak is
+recorded as JSON `null` with an `unavailable` measurement scope because the
+standard-library `resource` module is absent. The plan also records the Git
+revision and dirty state, the uv lockfile digest, and a digest over every
+tracked or non-ignored source file, so an exploratory dirty-tree pilot remains
+identifiable. Use
 `BENCHMARK_RUNS`, `BENCHMARK_ROUNDS`, and
 `BENCHMARK_WARMUP_ROUNDS` to control pilot repetition without changing case
 identity. Tail matrices use `BENCHMARK_TAIL_ROUNDS`, which defaults to the 100

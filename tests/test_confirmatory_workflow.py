@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 import pytest
@@ -10,6 +11,7 @@ from benchmarks._confirmatory_harness import COMMON_IMPLEMENTATION_NAME, install
 from benchmarks.confirmatory_experiments import EXPERIMENTS, get_experiment, predeclaration_manifest
 from scripts.confirmatory_reporting import render_confirmatory_artifacts
 from scripts.run_confirmatory import main as confirmatory_main
+from scripts.run_discovery import _child_resource_usage
 from scripts.run_discovery_study import discovery_tasks
 
 
@@ -108,6 +110,16 @@ def test_discovery_study_expands_each_stress_workload_separately(tmp_path: Path)
     assert [task.profile for task in tasks[:2]] == ["small", "core"]
     assert all(task.pytest_filter is not None for task in tasks[2:])
     assert len({task.output for task in tasks}) == len(tasks)
+
+
+def test_discovery_resource_metadata_is_portable_to_windows(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Importing discovery helpers must not require the POSIX resource module."""
+    monkeypatch.setattr(sys, "platform", "win32")
+
+    assert _child_resource_usage() == {
+        "maximum_resident_set_bytes": None,
+        "measurement_scope": "unavailable",
+    }
 
 
 def test_confirmatory_reporting_renders_adjusted_interval_artifacts(tmp_path: Path) -> None:

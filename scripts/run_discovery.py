@@ -6,7 +6,6 @@ import argparse
 import hashlib
 import json
 import os
-import resource
 import subprocess
 import sys
 import time
@@ -69,19 +68,29 @@ def main(argv: list[str] | None = None) -> int:
             "schema_version": 1,
             "profile": args.profile,
             "elapsed_seconds": elapsed_seconds,
-            "maximum_resident_set_bytes": _child_maximum_resident_set_bytes(),
-            "measurement_scope": "resource.RUSAGE_CHILDREN",
+            **_child_resource_usage(),
             "source_tree_digest": source_provenance["source_tree_digest"],
         },
     )
     return 0
 
 
-def _child_maximum_resident_set_bytes() -> int:
-    """Normalize child-process peak RSS to bytes on Linux and macOS."""
+def _child_resource_usage() -> dict[str, int | str | None]:
+    """Return normalized child peak RSS when the platform exposes it."""
+    if sys.platform == "win32":
+        return {
+            "maximum_resident_set_bytes": None,
+            "measurement_scope": "unavailable",
+        }
+
+    import resource
+
     maximum = resource.getrusage(resource.RUSAGE_CHILDREN).ru_maxrss
     multiplier = 1 if sys.platform == "darwin" else 1_024
-    return int(maximum * multiplier)
+    return {
+        "maximum_resident_set_bytes": int(maximum * multiplier),
+        "measurement_scope": "resource.RUSAGE_CHILDREN",
+    }
 
 
 def _positive_int(value: str) -> int:
