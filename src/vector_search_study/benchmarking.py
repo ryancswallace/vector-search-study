@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from collections.abc import Callable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from importlib.util import find_spec
 from typing import Final
 
 import numpy as np
@@ -25,6 +26,8 @@ K_VALUES: Final[tuple[int, ...]] = (1, 10, 100)
 OBJECTIVES: Final[tuple[SearchObjective, ...]] = tuple(SearchObjective)
 DEFAULT_SEED: Final = 20_260_801
 DEFAULT_MEMORY_BUDGET_BYTES: Final = 8 * 1_024**3
+DISCOVERY_METRICS: Final[tuple[str, ...]] = ("single_call_latency", "batch_throughput")
+TAIL_LATENCY_METRIC: Final = "tail_latency"
 _SCHEMA_VERSION: Final = 1
 
 
@@ -258,6 +261,46 @@ class FeasibilityDecision:
     reason: str
     estimated_peak_bytes: int
 
+    def metadata(self) -> dict[str, object]:
+        """Return strict-JSON-safe inclusion metadata."""
+        return {
+            "feasible": self.feasible,
+            "reason": self.reason,
+            "estimated_peak_bytes": self.estimated_peak_bytes,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class DiscoveryCellPlan:
+    """One implementation/workload decision in a discovery profile."""
+
+    workload: WorkloadSpec
+    implementation: ImplementationSpec
+    decision: FeasibilityDecision
+    dependency_installed: bool
+    metrics: tuple[str, ...]
+
+    @property
+    def included(self) -> bool:
+        """Return whether this cell can be collected on the current host."""
+        return self.decision.feasible and self.dependency_installed
+
+    def metadata(self) -> dict[str, object]:
+        """Return strict-JSON-safe plan metadata."""
+        reason = self.decision.reason
+        if self.decision.feasible and not self.dependency_installed:
+            reason = "dependency_not_installed"
+        return {
+            "workload": self.workload.name,
+            "implementation": self.implementation.name,
+            "included": self.included,
+            "reason": reason,
+            "estimated_peak_bytes": self.decision.estimated_peak_bytes,
+            "dependency": self.implementation.optional_dependency,
+            "dependency_installed": self.dependency_installed,
+            "metrics": list(self.metrics),
+        }
+
 
 def assess_feasibility(
     workload: WorkloadSpec,
@@ -286,17 +329,18 @@ def estimate_peak_bytes(workload: WorkloadSpec, implementation_name: str) -> int
     queries = workload.query_count * workload.dimension * item_size
     scores = workload.corpus_size * workload.query_count * item_size
     output = workload.query_count * workload.k * (item_size + np.dtype(np.int64).itemsize)
+    cached_dataset_and_index = corpus * 2 + queries + output
     if implementation_name == "numpy_full":
-        return corpus + queries + scores + workload.corpus_size * workload.query_count * 8 + output
+        return cached_dataset_and_index + scores + workload.corpus_size * workload.query_count * 8
     if implementation_name in {"numpy_argpartition", "torch_matmul_topk"}:
-        return corpus * (2 if implementation_name.startswith("torch") else 1) + queries + scores + output
+        return cached_dataset_and_index + scores + workload.corpus_size * 8
     if implementation_name == "numpy_blocked":
-        return corpus + queries + min(workload.corpus_size, 16_384) * workload.query_count * item_size + output * 2
+        return cached_dataset_and_index + min(workload.corpus_size, 16_384) * workload.query_count * item_size + output
     if implementation_name.startswith(("sklearn_", "scipy_")):
-        return corpus * 3 + queries + output
+        return cached_dataset_and_index + corpus * 2
     if implementation_name.startswith("faiss_"):
-        return corpus * 2 + queries + output
-    return corpus + queries + output
+        return cached_dataset_and_index + corpus
+    return cached_dataset_and_index
 
 
 def discovery_core_specs() -> tuple[WorkloadSpec, ...]:
@@ -332,15 +376,118 @@ def small_specs() -> tuple[WorkloadSpec, ...]:
 def stress_specs() -> tuple[WorkloadSpec, ...]:
     """Return core cases that isolate a high-cost factor."""
     return tuple(
-        spec
+        replace(spec, profile="discovery-stress")
         for spec in discovery_core_specs()
         if spec.corpus_size == 1_000_000 or spec.query_count == 1_024 or spec.dimension == 768
+    )
+
+
+def standard_specs() -> tuple[WorkloadSpec, ...]:
+    """Return discovery-core cases with stress factors collected separately."""
+    stress_coordinates = {
+        (spec.objective, spec.corpus_size, spec.dimension, spec.query_count, spec.k) for spec in stress_specs()
+    }
+    return tuple(
+        spec
+        for spec in discovery_core_specs()
+        if (spec.objective, spec.corpus_size, spec.dimension, spec.query_count, spec.k) not in stress_coordinates
     )
 
 
 def smoke_specs() -> tuple[WorkloadSpec, ...]:
     """Return tiny deterministic cases for benchmark-harness validation."""
     return tuple(WorkloadSpec(objective, 1_000, 8, 1, 10, profile="smoke") for objective in OBJECTIVES)
+
+
+def profile_specs(profile: str) -> tuple[WorkloadSpec, ...]:
+    """Return the workload slice collected by a named benchmark target."""
+    profiles = {
+        "smoke": smoke_specs,
+        "small": small_specs,
+        "core": standard_specs,
+        "stress": stress_specs,
+    }
+    try:
+        return profiles[profile]()
+    except KeyError as exc:
+        choices = ", ".join(sorted(profiles))
+        raise ValueError(f"profile must be one of: {choices}") from exc
+
+
+def selected_metrics(workload: WorkloadSpec) -> tuple[str, ...]:
+    """Return latency views selected before discovery collection."""
+    include_tail = workload.profile in {"smoke", "discovery-small"} or (
+        workload.profile == "discovery-core"
+        and workload.corpus_size == 10_000
+        and workload.dimension == 128
+        and workload.query_count == 32
+        and workload.k == 10
+    )
+    if include_tail:
+        return (*DISCOVERY_METRICS, TAIL_LATENCY_METRIC)
+    return DISCOVERY_METRICS
+
+
+def dependency_is_installed(implementation: ImplementationSpec) -> bool:
+    """Return whether an implementation's optional import is available."""
+    dependency = implementation.optional_dependency
+    if dependency is None:
+        return True
+    module = {"scikit-learn": "sklearn", "faiss-cpu": "faiss"}.get(dependency, dependency)
+    return find_spec(module) is not None
+
+
+def discovery_cell_plans(
+    profile: str,
+    *,
+    memory_budget_bytes: int = DEFAULT_MEMORY_BUDGET_BYTES,
+    availability: Callable[[ImplementationSpec], bool] = dependency_is_installed,
+) -> tuple[DiscoveryCellPlan, ...]:
+    """Return every included and excluded cell for one discovery profile."""
+    cells: list[DiscoveryCellPlan] = []
+    for workload in profile_specs(profile):
+        metrics = selected_metrics(workload)
+        for implementation in IMPLEMENTATIONS.values():
+            cells.append(
+                DiscoveryCellPlan(
+                    workload=workload,
+                    implementation=implementation,
+                    decision=assess_feasibility(
+                        workload,
+                        implementation,
+                        memory_budget_bytes=memory_budget_bytes,
+                    ),
+                    dependency_installed=availability(implementation),
+                    metrics=metrics,
+                )
+            )
+    return tuple(cells)
+
+
+def discovery_plan_metadata(
+    profile: str,
+    *,
+    memory_budget_bytes: int = DEFAULT_MEMORY_BUDGET_BYTES,
+    availability: Callable[[ImplementationSpec], bool] = dependency_is_installed,
+) -> dict[str, object]:
+    """Return a deterministic manifest of all discovery cell decisions."""
+    workloads = profile_specs(profile)
+    cells = discovery_cell_plans(
+        profile,
+        memory_budget_bytes=memory_budget_bytes,
+        availability=availability,
+    )
+    return {
+        "schema_version": _SCHEMA_VERSION,
+        "study": "exact_top_k_vector_search",
+        "profile": profile,
+        "memory_budget_bytes": memory_budget_bytes,
+        "workload_count": len(workloads),
+        "included_cell_count": sum(cell.included for cell in cells),
+        "excluded_cell_count": sum(not cell.included for cell in cells),
+        "workloads": [workload.metadata() for workload in workloads],
+        "cells": [cell.metadata() for cell in cells],
+    }
 
 
 def _score_convention(objective: SearchObjective) -> str:

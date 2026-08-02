@@ -18,10 +18,15 @@ from vector_search_study.benchmarking import (
     NaturalDatasetSpec,
     WorkloadSpec,
     assess_feasibility,
+    discovery_cell_plans,
     discovery_core_specs,
+    discovery_plan_metadata,
     estimate_peak_bytes,
+    profile_specs,
+    selected_metrics,
     small_specs,
     smoke_specs,
+    standard_specs,
     stress_specs,
 )
 
@@ -46,15 +51,58 @@ def test_requested_factor_levels_and_one_factor_core_are_complete() -> None:
 def test_profile_catalogs_are_distinct_and_bounded() -> None:
     """Small, stress, and smoke profiles have explicit experimental roles."""
     small = small_specs()
+    standard = standard_specs()
     stress = stress_specs()
     smoke = smoke_specs()
 
     assert len(small) == 12
+    assert len(standard) == 24
     assert len(stress) == 9
     assert len(smoke) == 3
     assert all(spec.profile == "discovery-small" for spec in small)
+    assert all(spec.profile == "discovery-core" for spec in standard)
+    assert all(spec.profile == "discovery-stress" for spec in stress)
     assert all(spec.corpus_size == 1_000_000 or spec.query_count == 1_024 or spec.dimension == 768 for spec in stress)
     assert {spec.objective for spec in smoke} == set(SearchObjective)
+    assert len({spec.name for spec in (*standard, *stress)}) == 33
+    assert profile_specs("core") == standard
+
+
+def test_discovery_plan_records_every_inclusion_and_exclusion() -> None:
+    """Planning is deterministic, JSON-safe, and retains excluded cells."""
+
+    def availability(_implementation: object) -> bool:
+        return True
+
+    cells = discovery_cell_plans("small", availability=availability)
+    metadata = discovery_plan_metadata("small", availability=availability)
+
+    assert len(cells) == len(small_specs()) * len(IMPLEMENTATIONS)
+    assert any(cell.included for cell in cells)
+    assert any(not cell.included for cell in cells)
+    assert metadata["included_cell_count"] == sum(cell.included for cell in cells)
+    assert metadata["excluded_cell_count"] == sum(not cell.included for cell in cells)
+    recorded_cells = metadata["cells"]
+    assert isinstance(recorded_cells, list)
+    assert len(recorded_cells) == len(cells)
+    _ = json.dumps(metadata, sort_keys=True, allow_nan=False)
+
+
+def test_selected_tail_latency_is_limited_to_predeclared_cases() -> None:
+    """Tail sampling is broad for small data and selected for the core anchor."""
+    small = small_specs()[0]
+    anchor = WorkloadSpec(SearchObjective.INNER_PRODUCT, 10_000, 128, 32, 10)
+    non_anchor = WorkloadSpec(SearchObjective.INNER_PRODUCT, 100_000, 128, 32, 10)
+
+    assert "tail_latency" in selected_metrics(small)
+    assert "tail_latency" in selected_metrics(anchor)
+    assert "tail_latency" not in selected_metrics(non_anchor)
+
+
+def test_unknown_profile_is_rejected() -> None:
+    """Collection targets cannot silently fall back to another profile."""
+    with pytest.raises(ValueError, match="profile must be one of"):
+        _ = profile_specs("unknown")
 
 
 def test_workload_metadata_is_deterministic_json_and_materializes_matching_data() -> None:
