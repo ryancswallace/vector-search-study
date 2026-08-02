@@ -25,6 +25,11 @@ NOX_ARGS ?=
 PRECOMMIT_ARGS ?= --all-files
 PYTEST_ARGS ?= -q
 BENCHMARK_OUTPUT ?= benchmark-results/smoke
+BENCHMARK_RUNS ?= 1
+BENCHMARK_ROUNDS ?= 10
+BENCHMARK_WARMUP_ROUNDS ?= 2
+BENCHMARK_FILTER ?=
+DISCOVERY_OUTPUT ?= benchmark-results/discovery
 RUFF_ARGS ?= .
 NODE_MODULES_STAMP := node_modules/.package-lock.json
 SBOM_PATH ?= dist/$(PROJECT_SLUG).cdx.json
@@ -39,6 +44,7 @@ RELEASE_TAG_BASE ?= main
 .PHONY: clean clean-build
 .PHONY: format lint typecheck markdownlint workflow-lint workflow-env-lint spellcheck
 .PHONY: test test-min-deps test-matrix benchmark-install benchmark-backend-test benchmark-smoke
+.PHONY: benchmark-discovery-small benchmark-discovery-core benchmark-discovery-stress
 .PHONY: docs docs-linkcheck serve-docs
 .PHONY: docker-lint docker-ready docker-build docker-build-test docker-test docker-smoke docker-scan docker-check
 .PHONY: lock-check deps secrets security audit
@@ -72,6 +78,9 @@ help:
 	@echo "  benchmark-install     Install optional exact-search benchmark backends"
 	@echo "  benchmark-backend-test Test every installed real exact-search backend"
 	@echo "  benchmark-smoke       Run the tiny validated benchmatrix smoke matrix"
+	@echo "  benchmark-discovery-small Collect the small discovery profile"
+	@echo "  benchmark-discovery-core Collect the standard-cost discovery profile"
+	@echo "  benchmark-discovery-stress Collect filtered high-cost discovery cells"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  docs                  Build the documentation site"
@@ -216,6 +225,34 @@ benchmark-smoke: benchmark-install
 	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
 		uv run --python 3.12 --group benchmark --group benchmark-backends \
 		benchmatrix measure --runs 1 --output "$(BENCHMARK_OUTPUT)" benchmarks/test_discovery_smoke.py
+
+benchmark-discovery-small: benchmark-install
+	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+		VECTOR_SEARCH_BENCHMARK_ROUNDS="$(BENCHMARK_ROUNDS)" \
+		VECTOR_SEARCH_BENCHMARK_WARMUP_ROUNDS="$(BENCHMARK_WARMUP_ROUNDS)" \
+		uv run --python 3.12 --group benchmark --group benchmark-backends \
+		python scripts/run_discovery.py --profile small --runs "$(BENCHMARK_RUNS)" \
+		--output "$(DISCOVERY_OUTPUT)/small" $(if $(BENCHMARK_FILTER),--pytest-filter "$(BENCHMARK_FILTER)",)
+
+benchmark-discovery-core: benchmark-install
+	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+		VECTOR_SEARCH_BENCHMARK_ROUNDS="$(BENCHMARK_ROUNDS)" \
+		VECTOR_SEARCH_BENCHMARK_WARMUP_ROUNDS="$(BENCHMARK_WARMUP_ROUNDS)" \
+		uv run --python 3.12 --group benchmark --group benchmark-backends \
+		python scripts/run_discovery.py --profile core --runs "$(BENCHMARK_RUNS)" \
+		--output "$(DISCOVERY_OUTPUT)/core" $(if $(BENCHMARK_FILTER),--pytest-filter "$(BENCHMARK_FILTER)",)
+
+benchmark-discovery-stress: benchmark-install
+	@if [ -z "$(BENCHMARK_FILTER)" ]; then \
+		echo "BENCHMARK_FILTER is required; collect one stress workload at a time."; \
+		exit 1; \
+	fi
+	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+		VECTOR_SEARCH_BENCHMARK_ROUNDS="$(BENCHMARK_ROUNDS)" \
+		VECTOR_SEARCH_BENCHMARK_WARMUP_ROUNDS="$(BENCHMARK_WARMUP_ROUNDS)" \
+		uv run --python 3.12 --group benchmark --group benchmark-backends \
+		python scripts/run_discovery.py --profile stress --runs "$(BENCHMARK_RUNS)" \
+		--output "$(DISCOVERY_OUTPUT)/stress" --pytest-filter "$(BENCHMARK_FILTER)"
 
 docs: install
 	DISABLE_MKDOCS_2_WARNING=true uv run mkdocs build --strict

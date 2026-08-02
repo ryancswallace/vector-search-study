@@ -107,6 +107,34 @@ dev = [
 link-mode = "copy"
 required-version = ">=0.11.8,<0.12"
 
+[tool.benchmatrix.compatibility]
+mode = "strict"
+
+[tool.benchmatrix.evidence]
+minimum_runs = 5
+minimum_samples_per_run = 5
+minimum_rounds_per_run = 5
+require_rounds = true
+require_iterations = true
+require_raw_samples_for_inference = true
+minimum_tail_samples_per_run = 100
+require_tail_iterations_one = true
+maximum_cv = 0.10
+maximum_outlier_fraction = 0.05
+
+[tool.benchmatrix.inference]
+method = "bca_bootstrap"
+confidence_level = 0.95
+resamples = 50000
+random_seed = 20260801
+multiplicity = "bonferroni"
+
+[tool.benchmatrix.regression]
+default_threshold_percent = 5.0
+
+[tool.benchmatrix.regression.by_metric]
+tail_latency = 8.0
+
 [tool.uv.sources]
 torch = [
     { index = "pytorch-cpu", marker = "platform_system != 'Darwin'" },
