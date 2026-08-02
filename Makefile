@@ -27,9 +27,15 @@ PYTEST_ARGS ?= -q
 BENCHMARK_OUTPUT ?= benchmark-results/smoke
 BENCHMARK_RUNS ?= 1
 BENCHMARK_ROUNDS ?= 10
+BENCHMARK_TAIL_ROUNDS ?= 100
 BENCHMARK_WARMUP_ROUNDS ?= 2
 BENCHMARK_FILTER ?=
 DISCOVERY_OUTPUT ?= benchmark-results/discovery
+DISCOVERY_ANALYSIS_OUTPUT ?= $(DISCOVERY_OUTPUT)/analysis
+CONFIRMATORY_EXPERIMENT ?= argpartition_vs_full_sort
+CONFIRMATORY_OUTPUT ?= benchmark-results/confirmatory/$(CONFIRMATORY_EXPERIMENT)
+CONFIRMATORY_PREDECLARATION ?= $(CONFIRMATORY_OUTPUT)/predeclaration.json
+CONFIRMATORY_ALLOW_DIRTY ?=
 RUFF_ARGS ?= .
 NODE_MODULES_STAMP := node_modules/.package-lock.json
 SBOM_PATH ?= dist/$(PROJECT_SLUG).cdx.json
@@ -44,7 +50,9 @@ RELEASE_TAG_BASE ?= main
 .PHONY: clean clean-build
 .PHONY: format lint typecheck markdownlint workflow-lint workflow-env-lint spellcheck
 .PHONY: test test-min-deps test-matrix benchmark-install benchmark-backend-test benchmark-smoke
-.PHONY: benchmark-discovery-small benchmark-discovery-core benchmark-discovery-stress
+.PHONY: benchmark-discovery-small benchmark-discovery-core benchmark-discovery-stress benchmark-discovery-study
+.PHONY: benchmark-analyze-discovery benchmark-confirmatory-predeclare benchmark-confirmatory-pilot
+.PHONY: benchmark-confirmatory-plan benchmark-confirmatory-final benchmark-confirmatory-report
 .PHONY: docs docs-linkcheck serve-docs
 .PHONY: docker-lint docker-ready docker-build docker-build-test docker-test docker-smoke docker-scan docker-check
 .PHONY: lock-check deps secrets security audit
@@ -81,6 +89,13 @@ help:
 	@echo "  benchmark-discovery-small Collect the small discovery profile"
 	@echo "  benchmark-discovery-core Collect the standard-cost discovery profile"
 	@echo "  benchmark-discovery-stress Collect filtered high-cost discovery cells"
+	@echo "  benchmark-discovery-study Collect every discovery profile with clean-source gates"
+	@echo "  benchmark-analyze-discovery Build discovery tables, plots, evidence audit, and report"
+	@echo "  benchmark-confirmatory-predeclare Bind paired families to one discovery analysis"
+	@echo "  benchmark-confirmatory-pilot Collect a balanced paired precision pilot"
+	@echo "  benchmark-confirmatory-plan Plan a fresh fixed-size paired experiment"
+	@echo "  benchmark-confirmatory-final Collect the fresh confirmatory experiment"
+	@echo "  benchmark-confirmatory-report Compare and report the final paired collection"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  docs                  Build the documentation site"
@@ -174,7 +189,7 @@ ready:
 	echo "Environment is ready."
 
 devcontainer-ready: bootstrap npm-install
-	uv sync --locked --python 3.12 --group benchmark --group benchmark-backends
+	uv sync --locked --python 3.12 --group analysis --group benchmark --group benchmark-backends --group lint
 	uv run --no-sync pre-commit install --install-hooks --hook-type pre-commit --hook-type pre-push
 	uv run --no-sync python scripts/verify_benchmark_backends.py
 
@@ -208,7 +223,8 @@ test: bootstrap
 	uv run pytest $(PYTEST_ARGS)
 
 test-min-deps: bootstrap
-	uv run --python "$(MIN_DEPS_PYTHON)" --isolated --resolution lowest-direct --no-default-groups --group test --group release python -m pytest $(PYTEST_ARGS)
+	uv run --python "$(MIN_DEPS_PYTHON)" --isolated --resolution lowest-direct --no-default-groups \
+		--group analysis --group benchmark --group test --group release python -m pytest $(PYTEST_ARGS)
 
 test-matrix: install
 	uv run nox $(NOX_ARGS)
@@ -229,6 +245,7 @@ benchmark-smoke: benchmark-install
 benchmark-discovery-small: benchmark-install
 	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
 		VECTOR_SEARCH_BENCHMARK_ROUNDS="$(BENCHMARK_ROUNDS)" \
+		VECTOR_SEARCH_BENCHMARK_TAIL_ROUNDS="$(BENCHMARK_TAIL_ROUNDS)" \
 		VECTOR_SEARCH_BENCHMARK_WARMUP_ROUNDS="$(BENCHMARK_WARMUP_ROUNDS)" \
 		uv run --python 3.12 --group benchmark --group benchmark-backends \
 		python scripts/run_discovery.py --profile small --runs "$(BENCHMARK_RUNS)" \
@@ -237,6 +254,7 @@ benchmark-discovery-small: benchmark-install
 benchmark-discovery-core: benchmark-install
 	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
 		VECTOR_SEARCH_BENCHMARK_ROUNDS="$(BENCHMARK_ROUNDS)" \
+		VECTOR_SEARCH_BENCHMARK_TAIL_ROUNDS="$(BENCHMARK_TAIL_ROUNDS)" \
 		VECTOR_SEARCH_BENCHMARK_WARMUP_ROUNDS="$(BENCHMARK_WARMUP_ROUNDS)" \
 		uv run --python 3.12 --group benchmark --group benchmark-backends \
 		python scripts/run_discovery.py --profile core --runs "$(BENCHMARK_RUNS)" \
@@ -249,10 +267,57 @@ benchmark-discovery-stress: benchmark-install
 	fi
 	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
 		VECTOR_SEARCH_BENCHMARK_ROUNDS="$(BENCHMARK_ROUNDS)" \
+		VECTOR_SEARCH_BENCHMARK_TAIL_ROUNDS="$(BENCHMARK_TAIL_ROUNDS)" \
 		VECTOR_SEARCH_BENCHMARK_WARMUP_ROUNDS="$(BENCHMARK_WARMUP_ROUNDS)" \
 		uv run --python 3.12 --group benchmark --group benchmark-backends \
 		python scripts/run_discovery.py --profile stress --runs "$(BENCHMARK_RUNS)" \
 		--output "$(DISCOVERY_OUTPUT)/stress" --pytest-filter "$(BENCHMARK_FILTER)"
+
+benchmark-discovery-study: benchmark-install
+	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+		uv run --python 3.12 --group benchmark --group benchmark-backends \
+		python -m scripts.run_discovery_study --output "$(DISCOVERY_OUTPUT)" \
+		--runs "$(BENCHMARK_RUNS)" --rounds "$(BENCHMARK_ROUNDS)" \
+		--tail-rounds "$(BENCHMARK_TAIL_ROUNDS)" --warmup-rounds "$(BENCHMARK_WARMUP_ROUNDS)"
+
+benchmark-analyze-discovery: benchmark-install
+	uv run --python 3.12 --group analysis --group benchmark \
+		python -m scripts.analyze_discovery "$(DISCOVERY_OUTPUT)" --output "$(DISCOVERY_ANALYSIS_OUTPUT)"
+
+benchmark-confirmatory-predeclare: benchmark-install
+	uv run --python 3.12 --group benchmark \
+		python -m scripts.run_confirmatory predeclare \
+		--discovery-analysis "$(DISCOVERY_ANALYSIS_OUTPUT)/analysis.json" \
+		--output "$(CONFIRMATORY_PREDECLARATION)"
+
+benchmark-confirmatory-pilot: benchmark-install
+	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+		uv run --python 3.12 --group benchmark --group benchmark-backends \
+		python -m scripts.run_confirmatory collect-pilot --experiment "$(CONFIRMATORY_EXPERIMENT)" \
+		--predeclaration "$(CONFIRMATORY_PREDECLARATION)" --output "$(CONFIRMATORY_OUTPUT)/pilot" \
+		--rounds "$(BENCHMARK_ROUNDS)" --warmup-rounds "$(BENCHMARK_WARMUP_ROUNDS)" \
+		$(CONFIRMATORY_ALLOW_DIRTY)
+
+benchmark-confirmatory-plan: benchmark-install
+	uv run --python 3.12 --group benchmark \
+		python -m scripts.run_confirmatory plan --experiment "$(CONFIRMATORY_EXPERIMENT)" \
+		--pilot "$(CONFIRMATORY_OUTPUT)/pilot" --predeclaration "$(CONFIRMATORY_PREDECLARATION)" \
+		--output "$(CONFIRMATORY_OUTPUT)/precision"
+
+benchmark-confirmatory-final: benchmark-install
+	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+		uv run --python 3.12 --group benchmark --group benchmark-backends \
+		python -m scripts.run_confirmatory collect-final --experiment "$(CONFIRMATORY_EXPERIMENT)" \
+		--predeclaration "$(CONFIRMATORY_PREDECLARATION)" \
+		--precision-plan "$(CONFIRMATORY_OUTPUT)/precision/precision-plan.json" \
+		--output "$(CONFIRMATORY_OUTPUT)/final" --rounds "$(BENCHMARK_ROUNDS)" \
+		--warmup-rounds "$(BENCHMARK_WARMUP_ROUNDS)"
+
+benchmark-confirmatory-report: benchmark-install
+	uv run --python 3.12 --group analysis --group benchmark \
+		python -m scripts.run_confirmatory compare-final --experiment "$(CONFIRMATORY_EXPERIMENT)" \
+		--collection "$(CONFIRMATORY_OUTPUT)/final" --predeclaration "$(CONFIRMATORY_PREDECLARATION)" \
+		--output "$(CONFIRMATORY_OUTPUT)/report"
 
 docs: install
 	DISABLE_MKDOCS_2_WARNING=true uv run mkdocs build --strict
