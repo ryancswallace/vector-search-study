@@ -23,3 +23,6 @@ and [Semantic Versioning](https://semver.org/).
     smoke definitions with explicit capability and feasibility policies.
 * Add a Linux amd64 devcontainer environment for CPU PyTorch and all optional
     benchmark backends.
+* Add bounded full discovery runners, scalable float64 oracle validation,
+    deterministic result digests, cell exclusion manifests, and pilot resource
+    records.

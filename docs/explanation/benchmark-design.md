@@ -9,10 +9,11 @@ and timing views, and includes allocations that exceed practical host memory.
 
 The discovery core anchors on `N=10k`, `D=128`, `Q=32`, and `k=10`, then
 varies one factor at a time for each objective. This produces 33 semantic
-cases. A 12-case small profile keeps scalar Python implementations in scope. A
-stress profile isolates `N=1M`, `Q=1024`, or `D=768`; deterministic feasibility
-rules exclude cells that exceed an 8 GiB dominant-allocation budget or a scalar
-runtime ceiling.
+cases. Collection separates 24 standard-cost cases from nine stress cases that
+isolate `N=1M`, `Q=1024`, or `D=768`. A 12-case small profile keeps scalar
+Python implementations in scope. Deterministic feasibility rules record every
+included and excluded implementation/workload cell and reject cells that
+exceed an 8 GiB conservative peak-allocation budget or a scalar runtime ceiling.
 
 Synthetic normalized-cosine data uses unit-normalized Gaussian vectors from a
 pinned NumPy PCG64 seed. Squared-L2 and inner-product data uses unnormalized
@@ -43,10 +44,23 @@ on supported CPU hosts.
 
 Each benchmark cell builds one index and prepares backend-specific query data
 before timing. Timed work includes exact scoring, selection, native-result
-conversion, and canonical ordering. Benchmatrix records latency, query
-throughput, and tail-latency views. The smoke matrix validates a strict top-k
-boundary margin and compares every returned result with the trusted scalar
-reference after timing.
+conversion, and canonical ordering. Benchmatrix records latency and query
+throughput for every included cell. Tail latency is preselected for all small
+workloads and the three objective-specific core anchors rather than duplicated
+across every costly cell.
+
+Every returned result is validated after timing. Workloads at or below one
+million scalar coordinate evaluations use the independent `math.fsum`
+reference. Larger workloads use bounded float64 query/corpus blocks after that
+path has been checked against the scalar oracle across objectives and dtypes.
+Only one generated workload and reference result is retained at a time, while
+all implementations and metrics for that workload reuse it. Raw benchmark JSON
+records the oracle method, strict top-k boundary margin, and a canonical SHA-256
+digest of expected identities and rounded scores. Selected identity sets must
+match exactly. An implementation-specific internal ordering may differ from
+the float64 oracle only when the corresponding reference scores are
+indistinguishable at an explicit dtype-scaled numerical tolerance; resolvable
+ordering inversions still fail validation.
 
 Case metadata is strict JSON and contains objective, score convention, shapes,
 dtype, normalization, generator revision, seed, dataset identity, profile, and
@@ -54,3 +68,32 @@ thread policy. It excludes timestamps, local paths, and Python object
 representations. Collection should set BLAS and backend thread counts to one,
 retain raw pytest-benchmark JSON, and capture the lockfile, Git revision, host,
 CPU, OS, and package versions alongside artifacts.
+
+## Collection workflow
+
+The checked-in benchmatrix policy requires five independent runs for formal
+evidence, raw samples, 50,000 deterministic BCa resamples, Bonferroni
+multiplicity control, and stricter tail-latency evidence. Discovery pilots use
+one or two runs only for feasibility and exploratory crossover inspection; they
+do not satisfy that evidence policy and cannot support confirmatory claims.
+
+Use a fresh output root for every collection:
+
+```bash
+make benchmark-discovery-small DISCOVERY_OUTPUT=benchmark-results/pilot-001
+make benchmark-discovery-core DISCOVERY_OUTPUT=benchmark-results/pilot-001
+make benchmark-discovery-stress \
+  DISCOVERY_OUTPUT=benchmark-results/pilot-001-stress-n1m \
+  BENCHMARK_FILTER='n1000000__d128__q32__k10'
+```
+
+Stress collection requires a filter so only one high-cost workload runs at a
+time. Each successful output directory contains the benchmatrix manifest and
+raw run JSON plus `discovery-plan.json`, which retains excluded cells, and
+`resource-usage.json`, which records elapsed collection time and child-process
+peak resident memory. The plan also records the Git revision and dirty state,
+the uv lockfile digest, and a digest over every tracked or non-ignored source
+file, so an exploratory dirty-tree pilot remains identifiable. Use
+`BENCHMARK_RUNS`, `BENCHMARK_ROUNDS`, and
+`BENCHMARK_WARMUP_ROUNDS` to control pilot repetition without changing case
+identity.

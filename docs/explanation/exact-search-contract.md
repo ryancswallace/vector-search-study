@@ -19,13 +19,18 @@ implementations repair selection-boundary ties. Third-party performance cells
 require a strict boundary margin and canonicalize returned candidates because
 several native APIs do not guarantee which index wins a tie.
 
-The trusted reference uses scalar objective calculations with `math.fsum` and a complete
-lexicographic ordering. Ordinary tests compare every implementation with that
-reference across both supported dtypes, batch shapes, values of `k`, exact
-ties, invalid inputs, and randomized normalized datasets. Future benchmark
-matrices run an untimed reference validator around every measured cell.
+The trusted small-workload reference uses scalar objective calculations with
+`math.fsum` and a complete lexicographic ordering. Ordinary tests compare every
+implementation with that reference across both supported dtypes, batch shapes,
+values of `k`, exact ties, invalid inputs, and randomized datasets. Larger
+benchmark workloads use a bounded float64 oracle that is itself checked against
+the scalar path. Untimed validation surrounds every measured cell, and raw
+artifacts retain the oracle method, strict boundary margin, and result digest.
+The selected identity set must match exactly. Internal ordering differences are
+accepted only for reference scores indistinguishable at a dtype-scaled
+numerical tolerance; all resolvable ordering differences remain failures.
 
 Index construction, corpus conversion, query normalization, and query tensor
 creation stay outside the timed operation. The current milestone deliberately
-excludes Numba, natural-embedding generation, full-scale collection, and
+excludes Numba, natural-embedding generation, confirmatory collection, and
 performance claims.

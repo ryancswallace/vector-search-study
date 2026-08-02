@@ -55,7 +55,9 @@ make benchmark-smoke
 ```
 
 The full discovery catalog is deliberately not a Cartesian product. It uses a
-33-case one-factor core plus small and stress profiles; see the
+33-case one-factor core split into 24 standard and nine filtered stress cases,
+plus a 12-case small profile. Scalable untimed oracles validate every measured
+cell and persist result digests in raw artifacts. See the
 [benchmark design](docs/explanation/benchmark-design.md) before collecting data.
 
 On Intel macOS, use the `linux/amd64` devcontainer to run CPU PyTorch and every

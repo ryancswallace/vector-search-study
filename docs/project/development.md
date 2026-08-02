@@ -42,3 +42,22 @@ removes its PEP 440 local `+cpu` label from the temporary pip-audit lookup file.
 PyPI vulnerability records use Torch's public release version, while the
 PyTorch wheel index uses the local label; this lookup-only normalization allows
 Torch and its transitive dependencies to remain in the audit.
+
+## Discovery pilots
+
+Discovery collection has separate small, standard-cost core, and filtered
+stress targets. Always choose a fresh artifact root:
+
+```bash
+make benchmark-discovery-small DISCOVERY_OUTPUT=benchmark-results/pilot-001
+make benchmark-discovery-core DISCOVERY_OUTPUT=benchmark-results/pilot-001
+make benchmark-discovery-stress \
+  DISCOVERY_OUTPUT=benchmark-results/pilot-001-stress-d768 \
+  BENCHMARK_FILTER='n10000__d768__q32__k10'
+```
+
+The default is one independent run with ten measured and two warmup rounds.
+Override `BENCHMARK_RUNS`, `BENCHMARK_ROUNDS`, or
+`BENCHMARK_WARMUP_ROUNDS` for an explicitly named pilot. A stress filter is
+mandatory. These pilot collections are exploratory and do not meet the
+five-run evidence policy configured for formal comparisons.
