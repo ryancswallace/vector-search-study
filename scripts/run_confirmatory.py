@@ -13,6 +13,7 @@ from typing import Final, cast
 
 from benchmarks.confirmatory_experiments import EXPERIMENTS, get_experiment, predeclaration_manifest
 from benchmatrix import format_comparison_report_markdown, load_comparison_report
+
 from scripts.confirmatory_reporting import render_confirmatory_artifacts
 from scripts.run_discovery import source_provenance_record
 

@@ -13,7 +13,6 @@ from pathlib import Path
 from typing import Final
 
 from scripts.run_discovery import source_provenance_record
-
 from vector_search_study.benchmarking import profile_specs
 
 _PROFILES: Final = ("small", "core", "stress")
