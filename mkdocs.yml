@@ -95,9 +95,15 @@ nav:
       - Reference overview: reference/index.md
       - API:
           - Package: reference/api/index.md
+          - API: reference/api/api.md
           - Exceptions: reference/api/exceptions.md
+          - NumPy search: reference/api/numpy_search.md
+          - Python search: reference/api/python_search.md
+          - Reference: reference/api/reference.md
+          - Synthetic data: reference/api/synthetic.md
   - Explanation:
       - Explanation overview: explanation/index.md
+      - Exact-search contract: explanation/exact-search-contract.md
       - Tooling: explanation/tooling.md
   - Maintainer runbooks:
       - Maintainer runbooks overview: runbooks/index.md

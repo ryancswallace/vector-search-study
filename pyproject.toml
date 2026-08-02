@@ -36,7 +36,9 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "numpy>=2.2.6",
+]
 
 [project.urls]
 Homepage = "https://github.com/ryancswallace/vector-search-study"
@@ -46,6 +48,10 @@ Issues = "https://github.com/ryancswallace/vector-search-study/issues"
 Source = "https://github.com/ryancswallace/vector-search-study"
 
 [dependency-groups]
+benchmark = [
+    "benchmatrix==1.2.0",
+    "threadpoolctl>=3.6.0",
+]
 test = [
     "hypothesis>=6.163.0",
     "pytest>=9.1.1",
@@ -82,6 +88,7 @@ automation = [
 ]
 dev = [
     { include-group = "automation" },
+    { include-group = "benchmark" },
     { include-group = "docs" },
     { include-group = "lint" },
     { include-group = "release" },
@@ -93,6 +100,10 @@ dev = [
 [tool.uv]
 link-mode = "copy"
 required-version = ">=0.11.8,<0.12"
+
+[tool.uv.sources]
+# Temporary until benchmatrix 1.2.0 is visible from the configured package index.
+benchmatrix = { path = "../benchmatrix" }
 
 [build-system]
 requires = ["hatchling>=1.31.0"]

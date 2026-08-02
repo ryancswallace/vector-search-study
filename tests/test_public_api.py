@@ -4,11 +4,26 @@ import vector_search_study
 
 
 def test_public_exports_are_available() -> None:
-    """The package exports its documented public objects."""
+    """The package exports only its documented milestone objects."""
     expected_exports = {
+        "ExactSearcher",
+        "InvalidSearchParameterError",
+        "InvalidVectorDataError",
+        "NumpyArgpartitionSearcher",
+        "NumpyBlockedSearcher",
+        "NumpySortSearcher",
+        "PreparedQueries",
+        "PythonHeapSearcher",
+        "PythonSortSearcher",
+        "SearchResult",
+        "SyntheticDataset",
         "VectorSearchStudyError",
         "__version__",
-        "greet",
+        "make_clustered_dataset",
+        "make_uniform_sphere_dataset",
+        "normalize_rows",
+        "prepare_queries",
+        "reference_search",
     }
 
     assert set(vector_search_study.__all__) == expected_exports

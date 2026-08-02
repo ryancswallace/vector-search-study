@@ -21,13 +21,29 @@ Install the package:
 uv add vector-search-study
 ```
 
-Use it from Python:
+Build a normalized corpus and run deterministic exact top-k search:
 
 ```python
-from vector_search_study import greet
+import numpy as np
 
-print(greet("Python"))
+from vector_search_study import NumpyArgpartitionSearcher, normalize_rows
+
+corpus = normalize_rows(np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32))
+queries = normalize_rows(np.asarray([[0.8, 0.2]], dtype=np.float32))
+
+index = NumpyArgpartitionSearcher(corpus)
+result = index.search(queries, k=1)
+print(result.indices)  # [[0]]
 ```
+
+Every implementation returns scores in descending order and resolves exact
+ties by the smaller corpus index. Prepare queries once with `prepare_queries`
+and call `search_prepared` when query validation and copying must stay outside
+a timed operation.
+
+The correctness milestone includes pure-Python full-sort and heap search plus
+NumPy full-sort, argpartition, and blocked implementations. Benchmark matrices,
+natural-data preparation, and compiled implementations follow in later stages.
 
 For local development from this repository:
 
