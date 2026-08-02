@@ -2,10 +2,13 @@
     "name": "vector-search-study-dev",
     "build": {
         "dockerfile": "Dockerfile",
+        "options": [
+            "--platform=linux/amd64"
+        ],
         "args": {
             "DEBIAN_VERSION": "bookworm",
-            "PYTHON_VERSION": "3.14",
-            "UV_VERSION": "0.11.21"
+            "PYTHON_VERSION": "3.12",
+            "UV_VERSION": "0.11.23"
         }
     },
     "features": {
@@ -23,9 +26,19 @@
             "version": "24"
         }
     },
+    "mounts": [
+        "source=vector-search-study-dev-venv,target=${containerWorkspaceFolder}/.venv,type=volume"
+    ],
     "containerEnv": {
+        "LOKY_MAX_CPU_COUNT": "1",
+        "MKL_NUM_THREADS": "1",
+        "OMP_NUM_THREADS": "1",
+        "OPENBLAS_NUM_THREADS": "1",
         "PIP_DISABLE_PIP_VERSION_CHECK": "1",
-        "UV_LINK_MODE": "copy"
+        "PYTHONHASHSEED": "0",
+        "UV_LINK_MODE": "copy",
+        "UV_PROJECT_ENVIRONMENT": ".venv",
+        "VECLIB_MAXIMUM_THREADS": "1"
     },
     "customizations": {
         "codespaces": {
@@ -73,6 +86,9 @@
             ]
         }
     },
-    "postCreateCommand": "make hooks-install",
+    "postCreateCommand": "sudo chown -R vscode:vscode .venv && make devcontainer-ready",
+    "runArgs": [
+        "--platform=linux/amd64"
+    ],
     "remoteUser": "vscode"
 }

@@ -24,6 +24,7 @@ MIN_DEPS_PYTHON ?= 3.11
 NOX_ARGS ?=
 PRECOMMIT_ARGS ?= --all-files
 PYTEST_ARGS ?= -q
+BENCHMARK_OUTPUT ?= benchmark-results/smoke
 RUFF_ARGS ?= .
 NODE_MODULES_STAMP := node_modules/.package-lock.json
 SBOM_PATH ?= dist/$(PROJECT_SLUG).cdx.json
@@ -34,10 +35,10 @@ RELEASE_PR_FLAGS ?=
 RELEASE_TAG_BASE ?= main
 
 .PHONY: help all
-.PHONY: bootstrap npm-install install hooks-install ready
+.PHONY: bootstrap npm-install install hooks-install ready devcontainer-ready
 .PHONY: clean clean-build
 .PHONY: format lint typecheck markdownlint workflow-lint workflow-env-lint spellcheck
-.PHONY: test test-min-deps test-matrix
+.PHONY: test test-min-deps test-matrix benchmark-install benchmark-backend-test benchmark-smoke
 .PHONY: docs docs-linkcheck serve-docs
 .PHONY: docker-lint docker-ready docker-build docker-build-test docker-test docker-smoke docker-scan docker-check
 .PHONY: lock-check deps secrets security audit
@@ -53,6 +54,7 @@ help:
 	@echo "  install               Sync Python dependencies from uv.lock"
 	@echo "  hooks-install         Install pre-commit and pre-push Git hooks"
 	@echo "  ready                 Sync dependencies and verify the environment"
+	@echo "  devcontainer-ready    Install and verify the complete devcontainer environment"
 	@echo ""
 	@echo "Cleanup:"
 	@echo "  clean                 Remove local cache files"
@@ -67,6 +69,9 @@ help:
 	@echo "  test                  Run unit tests"
 	@echo "  test-min-deps         Run tests with minimum direct dependency versions"
 	@echo "  test-matrix           Run the full local nox test and quality matrix"
+	@echo "  benchmark-install     Install optional exact-search benchmark backends"
+	@echo "  benchmark-backend-test Test every installed real exact-search backend"
+	@echo "  benchmark-smoke       Run the tiny validated benchmatrix smoke matrix"
 	@echo ""
 	@echo "Documentation:"
 	@echo "  docs                  Build the documentation site"
@@ -159,6 +164,11 @@ ready:
 	echo ""; \
 	echo "Environment is ready."
 
+devcontainer-ready: bootstrap npm-install
+	uv sync --locked --python 3.12 --group benchmark --group benchmark-backends
+	uv run --no-sync pre-commit install --install-hooks --hook-type pre-commit --hook-type pre-push
+	uv run --no-sync python scripts/verify_benchmark_backends.py
+
 clean:
 	find . -path "./.venv" -prune -o -path "./node_modules" -prune -o -type d -name "__pycache__" -prune -exec rm -rf {} +
 	find . -path "./.venv" -prune -o -path "./node_modules" -prune -o -type d -name ".pytest_cache" -prune -exec rm -rf {} +
@@ -193,6 +203,19 @@ test-min-deps: bootstrap
 
 test-matrix: install
 	uv run nox $(NOX_ARGS)
+
+benchmark-install: bootstrap
+	uv sync --locked --python 3.12 --group benchmark --group benchmark-backends
+
+benchmark-backend-test: benchmark-install
+	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+		uv run --python 3.12 --group benchmark --group benchmark-backends \
+		pytest tests/test_backend_integration.py -q --no-cov
+
+benchmark-smoke: benchmark-install
+	LOKY_MAX_CPU_COUNT=1 OMP_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 MKL_NUM_THREADS=1 VECLIB_MAXIMUM_THREADS=1 \
+		uv run --python 3.12 --group benchmark --group benchmark-backends \
+		benchmatrix measure --runs 1 --output "$(BENCHMARK_OUTPUT)" benchmarks/test_discovery_smoke.py
 
 docs: install
 	DISABLE_MKDOCS_2_WARNING=true uv run mkdocs build --strict
@@ -277,7 +300,7 @@ security: bootstrap
 audit: bootstrap
 	@audit_file=$$(mktemp); \
 	trap 'rm -f "$$audit_file"' 0 1 2 15; \
-	uv export --quiet --locked --all-groups --no-emit-project --no-emit-local --format requirements-txt --output-file "$$audit_file" && \
+	uv export --quiet --locked --all-groups --no-emit-project --no-emit-local --no-emit-package benchmatrix --format requirements-txt --output-file "$$audit_file" && \
 	uv run pip-audit --requirement "$$audit_file" --require-hashes --disable-pip --strict --progress-spinner off
 
 release-version-check: bootstrap

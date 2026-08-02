@@ -1,17 +1,18 @@
 # syntax=docker/dockerfile:1
 
-ARG PYTHON_VERSION=3.14
+ARG PYTHON_VERSION=3.12
 ARG DEBIAN_VERSION=bookworm
-ARG UV_VERSION=0.11.21
+ARG UV_VERSION=0.11.23
 
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv-bin
 
-FROM mcr.microsoft.com/devcontainers/python:${PYTHON_VERSION}-${DEBIAN_VERSION}
+FROM mcr.microsoft.com/devcontainers/python:1-${PYTHON_VERSION}-${DEBIAN_VERSION}
 
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    UV_PROJECT_ENVIRONMENT=.venv
 
 # The base image may include a Yarn APT source with a stale or missing key.
 # Node is installed by the devcontainer feature, so keep it out of apt updates.
