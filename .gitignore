@@ -24,6 +24,7 @@ site/
 .coverage
 htmlcov/
 reports/
+benchmark-results/
 
 # Environment and secrets
 .env

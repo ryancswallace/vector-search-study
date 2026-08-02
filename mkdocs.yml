@@ -97,13 +97,19 @@ nav:
           - Package: reference/api/index.md
           - API: reference/api/api.md
           - Exceptions: reference/api/exceptions.md
+          - Benchmark definitions: reference/api/benchmarking.md
+          - Faiss search: reference/api/faiss_search.md
           - NumPy search: reference/api/numpy_search.md
           - Python search: reference/api/python_search.md
           - Reference: reference/api/reference.md
+          - SciPy search: reference/api/scipy_search.md
+          - scikit-learn search: reference/api/sklearn_search.md
           - Synthetic data: reference/api/synthetic.md
+          - PyTorch search: reference/api/torch_search.md
   - Explanation:
       - Explanation overview: explanation/index.md
       - Exact-search contract: explanation/exact-search-contract.md
+      - Benchmark design: explanation/benchmark-design.md
       - Tooling: explanation/tooling.md
   - Maintainer runbooks:
       - Maintainer runbooks overview: runbooks/index.md
