@@ -299,9 +299,11 @@ security: bootstrap
 
 audit: bootstrap
 	@audit_file=$$(mktemp); \
-	trap 'rm -f "$$audit_file"' 0 1 2 15; \
-	uv export --quiet --locked --all-groups --no-emit-project --no-emit-local --no-emit-package benchmatrix --format requirements-txt --output-file "$$audit_file" && \
-	uv run pip-audit --requirement "$$audit_file" --require-hashes --disable-pip --strict --progress-spinner off
+	audit_lookup_file=$$(mktemp); \
+	trap 'rm -f "$$audit_file" "$$audit_lookup_file"' 0 1 2 15; \
+	uv export --quiet --locked --all-groups --no-emit-project --no-emit-local --format requirements-txt --output-file "$$audit_file" && \
+	sed -E 's/^(torch==[^+[:space:];]+)\+[^[:space:];]+/\1/' "$$audit_file" > "$$audit_lookup_file" && \
+	uv run pip-audit --requirement "$$audit_lookup_file" --require-hashes --disable-pip --strict --progress-spinner off
 
 release-version-check: bootstrap
 	uv run python scripts/prepare_release.py validate-version "$(RELEASE_VERSION)"

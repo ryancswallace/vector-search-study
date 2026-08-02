@@ -49,7 +49,7 @@ Source = "https://github.com/ryancswallace/vector-search-study"
 
 [dependency-groups]
 benchmark = [
-    "benchmatrix==1.2.0",
+    "benchmatrix==1.2.1",
     "threadpoolctl>=3.6.0",
 ]
 benchmark-backends = [
@@ -108,7 +108,6 @@ link-mode = "copy"
 required-version = ">=0.11.8,<0.12"
 
 [tool.uv.sources]
-benchmatrix = { git = "https://github.com/ryancswallace/benchmatrix.git", rev = "109ecaa10ecd0fde23ce907aeebbb403f0d27bde" }  # pragma: allowlist secret
 torch = [
     { index = "pytorch-cpu", marker = "platform_system != 'Darwin'" },
 ]

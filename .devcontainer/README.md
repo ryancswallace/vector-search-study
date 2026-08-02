@@ -8,8 +8,7 @@ It provides:
     environment even on an Intel macOS host.
 * uv 0.11.23.
 * CPU-only PyTorch, Faiss, SciPy, and scikit-learn benchmark backends.
-* Benchmatrix 1.2.0 from its release commit, without relying on an adjacent
-    host checkout.
+* Benchmatrix 1.2.1 from PyPI, without relying on an adjacent host checkout.
 * A persistent Docker volume for `.venv`, keeping Linux packages off the slow
     macOS bind mount and isolated from the native host environment.
 * Node.js 24 for Markdown, spelling, workflow, and Dockerfile checks.

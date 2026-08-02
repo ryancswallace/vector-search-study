@@ -114,11 +114,15 @@ wheels = [
 
 [[package]]
 name = "benchmatrix"
-version = "1.2.0"
-source = { git = "https://github.com/ryancswallace/benchmatrix.git?rev=109ecaa10ecd0fde23ce907aeebbb403f0d27bde#109ecaa10ecd0fde23ce907aeebbb403f0d27bde" }
+version = "1.2.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "pytest" },
     { name = "pytest-benchmark" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/33/e0/38e4f458429dfe9a60eef58ca7f2e5ff11b33e02eb265ff09158af12d721/benchmatrix-1.2.1.tar.gz", hash = "sha256:1bfa6805ef56e054d9911f3c2772ba05e6e5d5f93d3d8086b1f10e551e15aedc", size = 648496, upload-time = "2026-08-02T12:41:14.147Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/cd/11/6feef582b46f942dd46e41d465139f134829a87727e682b0e402447439b7/benchmatrix-1.2.1-py3-none-any.whl", hash = "sha256:aa61517007e9c1df7f7db3480a1fd63d6f6fabd387c9e521438a76621c298f92", size = 116258, upload-time = "2026-08-02T12:41:12.905Z" },
 ]
 
 [[package]]
@@ -2732,7 +2736,7 @@ requires-dist = [{ name = "numpy", specifier = ">=2.2.6" }]
 [package.metadata.requires-dev]
 automation = [{ name = "nox", specifier = ">=2026.7.11" }]
 benchmark = [
-    { name = "benchmatrix", git = "https://github.com/ryancswallace/benchmatrix.git?rev=109ecaa10ecd0fde23ce907aeebbb403f0d27bde" },
+    { name = "benchmatrix", specifier = "==1.2.1" },
     { name = "threadpoolctl", specifier = ">=3.6.0" },
 ]
 benchmark-backends = [
@@ -2745,7 +2749,7 @@ benchmark-backends = [
 dev = [
     { name = "bandit", extras = ["toml"], specifier = ">=1.9.4" },
     { name = "basedpyright", specifier = ">=1.39.9" },
-    { name = "benchmatrix", git = "https://github.com/ryancswallace/benchmatrix.git?rev=109ecaa10ecd0fde23ce907aeebbb403f0d27bde" },
+    { name = "benchmatrix", specifier = "==1.2.1" },
     { name = "build", specifier = ">=1.5.0" },
     { name = "cyclonedx-bom", specifier = ">=7.3.1" },
     { name = "deptry", specifier = ">=0.25.1" },
