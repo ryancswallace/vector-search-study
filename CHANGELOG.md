@@ -17,3 +17,9 @@ and [Semantic Versioning](https://semver.org/).
 * Add deterministic uniform-sphere and clustered synthetic datasets.
 * Add adversarial, invalid-input, numerical, and property-based correctness
     tests for every implementation.
+* Add squared-L2 and inner-product objectives alongside normalized cosine.
+* Add optional exact adapters for scikit-learn, SciPy, Faiss, and CPU PyTorch.
+* Add deterministic discovery, small, stress, natural-data, and benchmatrix
+    smoke definitions with explicit capability and feasibility policies.
+* Add a Linux amd64 devcontainer environment for CPU PyTorch and all optional
+    benchmark backends.

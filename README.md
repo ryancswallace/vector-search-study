@@ -26,12 +26,12 @@ Build a normalized corpus and run deterministic exact top-k search:
 ```python
 import numpy as np
 
-from vector_search_study import NumpyArgpartitionSearcher, normalize_rows
+from vector_search_study import NumpyArgpartitionSearcher, SearchObjective, normalize_rows
 
 corpus = normalize_rows(np.asarray([[1.0, 0.0], [0.0, 1.0]], dtype=np.float32))
 queries = normalize_rows(np.asarray([[0.8, 0.2]], dtype=np.float32))
 
-index = NumpyArgpartitionSearcher(corpus)
+index = NumpyArgpartitionSearcher(corpus, objective=SearchObjective.NORMALIZED_COSINE)
 result = index.search(queries, k=1)
 print(result.indices)  # [[0]]
 ```
@@ -41,9 +41,26 @@ ties by the smaller corpus index. Prepare queries once with `prepare_queries`
 and call `search_prepared` when query validation and copying must stay outside
 a timed operation.
 
-The correctness milestone includes pure-Python full-sort and heap search plus
-NumPy full-sort, argpartition, and blocked implementations. Benchmark matrices,
-natural-data preparation, and compiled implementations follow in later stages.
+The suite supports negative squared L2, inner product, and normalized cosine.
+It includes pure-Python and NumPy implementations plus optional exact adapters
+for scikit-learn brute/KDTree/BallTree, SciPy cKDTree, Faiss Flat L2/IP, and
+CPU PyTorch matmul/topk. Unsupported objective/backend pairings are omitted
+explicitly rather than approximated.
+
+Install the optional backends and run the tiny correctness-guarded benchmark
+harness with:
+
+```bash
+make benchmark-smoke
+```
+
+The full discovery catalog is deliberately not a Cartesian product. It uses a
+33-case one-factor core plus small and stress profiles; see the
+[benchmark design](docs/explanation/benchmark-design.md) before collecting data.
+
+On Intel macOS, use the `linux/amd64` devcontainer to run CPU PyTorch and every
+other optional backend. See [development](docs/project/development.md) for the
+real-backend and artifact-preserving smoke commands.
 
 For local development from this repository:
 
