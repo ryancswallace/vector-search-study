@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any, Protocol, TypeAlias
 
 import numpy as np
@@ -14,6 +15,38 @@ from vector_search_study.exceptions import InvalidVectorDataError
 FloatDType: TypeAlias = np.dtype[np.floating[Any]]
 
 
+class SearchObjective(StrEnum):
+    """Exact-search score convention used throughout the study."""
+
+    SQUARED_L2 = "squared_l2"
+    INNER_PRODUCT = "inner_product"
+    NORMALIZED_COSINE = "normalized_cosine"
+
+    @property
+    def requires_normalization(self) -> bool:
+        """Return whether corpus and query rows must have unit L2 norm."""
+        return self is SearchObjective.NORMALIZED_COSINE
+
+
+def resolve_search_objective(value: SearchObjective | str) -> SearchObjective:
+    """Return a validated search objective.
+
+    Args:
+        value: An objective enum value or its string representation.
+
+    Returns:
+        The resolved objective.
+
+    Raises:
+        InvalidVectorDataError: If ``value`` is not a supported objective.
+    """
+    try:
+        return SearchObjective(value)
+    except (TypeError, ValueError) as exc:
+        choices = ", ".join(objective.value for objective in SearchObjective)
+        raise InvalidVectorDataError(f"objective must be one of: {choices}") from exc
+
+
 @dataclass(frozen=True, slots=True)
 class PreparedQueries:
     """Validated, immutable queries ready for repeated timed searches.
@@ -22,17 +55,29 @@ class PreparedQueries:
     matrix. Benchmarks can therefore prepare it outside the timed operation.
 
     Args:
-        values: C-contiguous float32 or float64 matrix with unit-norm rows.
+        values: C-contiguous float32 or float64 query matrix.
+        objective: Score convention for which the queries were prepared.
     """
 
     values: FloatMatrix
+    objective: SearchObjective = SearchObjective.NORMALIZED_COSINE
+    backend_name: str | None = None
+    backend_payload: object | None = field(default=None, repr=False, compare=False)
 
     def __post_init__(self) -> None:
         """Validate, own, and freeze the query matrix."""
-        validated = validate_vector_matrix(self.values, name="queries")
+        objective = resolve_search_objective(self.objective)
+        validated = validate_vector_matrix(
+            self.values,
+            name="queries",
+            require_normalized=objective.requires_normalization,
+        )
         owned = np.array(validated, dtype=validated.dtype, order="C", copy=True)
         owned.flags.writeable = False
         object.__setattr__(self, "values", owned)
+        object.__setattr__(self, "objective", objective)
+        if self.backend_name is not None and not self.backend_name:
+            raise InvalidVectorDataError("backend_name must be non-empty when provided")
 
     @property
     def query_count(self) -> int:
@@ -55,12 +100,12 @@ class SearchResult:
     """Ordered exact top-k indices and scores for a query batch.
 
     Rows are ordered by decreasing score, with smaller corpus indices winning
-    exact score ties. Scores are exposed as float64 so implementations can be
-    compared under a common result representation.
+    exact score ties. Scores are float64 and always use a higher-is-better
+    convention: negative squared distance, inner product, or normalized cosine.
 
     Args:
         indices: Corpus indices with shape ``(query_count, k)``.
-        scores: Inner-product scores with the same shape.
+        scores: Objective scores with the same shape.
     """
 
     indices: NDArray[np.int64]
@@ -114,6 +159,15 @@ class ExactSearcher(Protocol):
         """Return the indexed scalar dtype."""
         ...
 
+    @property
+    def objective(self) -> SearchObjective:
+        """Return the search objective."""
+        ...
+
+    def prepare_queries(self, queries: FloatMatrix) -> PreparedQueries:
+        """Prepare queries outside the timed search operation."""
+        ...
+
     def search(self, queries: FloatMatrix, k: int) -> SearchResult:
         """Validate and search a raw query matrix."""
         ...
@@ -123,16 +177,22 @@ class ExactSearcher(Protocol):
         ...
 
 
-def prepare_queries(queries: FloatMatrix) -> PreparedQueries:
+def prepare_queries(
+    queries: FloatMatrix,
+    *,
+    objective: SearchObjective | str = SearchObjective.NORMALIZED_COSINE,
+) -> PreparedQueries:
     """Validate and copy queries for repeated search.
 
     Args:
-        queries: C-contiguous float32 or float64 matrix with unit-norm rows.
+        queries: C-contiguous float32 or float64 matrix. Rows must be
+            normalized for normalized cosine.
+        objective: Score convention for the prepared queries.
 
     Returns:
         An immutable prepared query batch.
     """
-    return PreparedQueries(queries)
+    return PreparedQueries(queries, objective=resolve_search_objective(objective))
 
 
 def normalize_rows(values: FloatMatrix) -> FloatMatrix:

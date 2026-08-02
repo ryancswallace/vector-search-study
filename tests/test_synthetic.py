@@ -6,7 +6,9 @@ import pytest
 from vector_search_study import (
     InvalidSearchParameterError,
     InvalidVectorDataError,
+    SearchObjective,
     make_clustered_dataset,
+    make_gaussian_dataset,
     make_uniform_sphere_dataset,
 )
 
@@ -38,6 +40,35 @@ def test_synthetic_distributions_and_seeds_change_data() -> None:
     assert clustered.distribution == "clustered"
     assert not np.array_equal(uniform.corpus, other_seed.corpus)
     assert not np.array_equal(uniform.corpus, clustered.corpus)
+
+
+@pytest.mark.parametrize("objective", [SearchObjective.SQUARED_L2, SearchObjective.INNER_PRODUCT])
+def test_gaussian_datasets_are_reproducible_and_unnormalized(objective: SearchObjective) -> None:
+    """Non-cosine workloads preserve natural vector magnitudes."""
+    first = make_gaussian_dataset(10, 5, 3, objective=objective, seed=7)
+    second = make_gaussian_dataset(10, 5, 3, objective=objective, seed=7)
+
+    np.testing.assert_array_equal(first.corpus, second.corpus)
+    assert first.distribution == "gaussian"
+    assert first.objective is objective
+    assert not np.allclose(np.linalg.norm(first.corpus, axis=1), 1.0)
+    assert not first.corpus.flags.writeable
+
+
+def test_clustered_dataset_obeys_objective_normalization() -> None:
+    """Clustered data can support all objectives without implicit metric changes."""
+    inner_product = make_clustered_dataset(10, 5, 3, objective=SearchObjective.INNER_PRODUCT)
+    cosine = make_clustered_dataset(10, 5, 3)
+
+    assert inner_product.objective is SearchObjective.INNER_PRODUCT
+    assert not np.allclose(np.linalg.norm(inner_product.corpus, axis=1), 1.0)
+    np.testing.assert_allclose(np.linalg.norm(cosine.corpus, axis=1), 1.0, rtol=1e-5, atol=1e-6)
+
+
+def test_gaussian_generator_rejects_cosine() -> None:
+    """Normalized cosine uses the explicitly normalized generator."""
+    with pytest.raises(InvalidSearchParameterError, match="uniform_sphere"):
+        _ = make_gaussian_dataset(4, 3, 2, objective=SearchObjective.NORMALIZED_COSINE)
 
 
 @pytest.mark.parametrize("field", ["corpus_size", "dimension", "query_count"])

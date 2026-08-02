@@ -8,15 +8,20 @@ import numpy as np
 
 from vector_search_study._base import BaseExactSearcher
 from vector_search_study._validation import FloatMatrix
-from vector_search_study.api import PreparedQueries, SearchResult
+from vector_search_study.api import PreparedQueries, SearchObjective, SearchResult
 
 
 class PythonSortSearcher(BaseExactSearcher):
     """Exhaustively score into a Python list and fully sort it."""
 
-    def __init__(self, corpus: FloatMatrix) -> None:
+    def __init__(
+        self,
+        corpus: FloatMatrix,
+        *,
+        objective: SearchObjective | str = SearchObjective.NORMALIZED_COSINE,
+    ) -> None:
         """Build the scalar corpus representation outside search timing."""
-        super().__init__(corpus)
+        super().__init__(corpus, objective=objective)
         self._rows = tuple(tuple(float(value) for value in row) for row in self._corpus)
 
     def _search_prepared(self, queries: PreparedQueries, k: int) -> SearchResult:
@@ -27,7 +32,7 @@ class PythonSortSearcher(BaseExactSearcher):
             query = tuple(float(value) for value in query_array)
             ranked: list[tuple[float, int]] = []
             for index, vector in enumerate(self._rows):
-                score = _scalar_dot(vector, query)
+                score = _scalar_score(vector, query, self.objective)
                 ranked.append((score, index))
             ranked.sort(key=lambda item: (-item[0], item[1]))
             selected = ranked[:k]
@@ -42,9 +47,14 @@ class PythonSortSearcher(BaseExactSearcher):
 class PythonHeapSearcher(BaseExactSearcher):
     """Stream exhaustive scalar scores through a bounded size-k heap."""
 
-    def __init__(self, corpus: FloatMatrix) -> None:
+    def __init__(
+        self,
+        corpus: FloatMatrix,
+        *,
+        objective: SearchObjective | str = SearchObjective.NORMALIZED_COSINE,
+    ) -> None:
         """Build the scalar corpus representation outside search timing."""
-        super().__init__(corpus)
+        super().__init__(corpus, objective=objective)
         self._rows = tuple(tuple(float(value) for value in row) for row in self._corpus)
 
     def _search_prepared(self, queries: PreparedQueries, k: int) -> SearchResult:
@@ -55,7 +65,7 @@ class PythonHeapSearcher(BaseExactSearcher):
             query = tuple(float(value) for value in query_array)
             heap: list[tuple[float, int, int]] = []
             for index, vector in enumerate(self._rows):
-                score = _scalar_dot(vector, query)
+                score = _scalar_score(vector, query, self.objective)
                 item = (score, -index, index)
                 if len(heap) < k:
                     heapq.heappush(heap, item)
@@ -70,9 +80,18 @@ class PythonHeapSearcher(BaseExactSearcher):
         )
 
 
-def _scalar_dot(left: tuple[float, ...], right: tuple[float, ...]) -> float:
-    """Return a scalar dot product using an ordinary Python accumulator."""
+def _scalar_score(
+    left: tuple[float, ...],
+    right: tuple[float, ...],
+    objective: SearchObjective,
+) -> float:
+    """Return a scalar objective score using an ordinary accumulator."""
     result = 0.0
+    if objective is SearchObjective.SQUARED_L2:
+        for left_value, right_value in zip(left, right, strict=True):
+            difference = left_value - right_value
+            result += difference * difference
+        return -result
     for left_value, right_value in zip(left, right, strict=True):
         result += left_value * right_value
     return result

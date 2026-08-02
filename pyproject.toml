@@ -52,6 +52,12 @@ benchmark = [
     "benchmatrix==1.2.0",
     "threadpoolctl>=3.6.0",
 ]
+benchmark-backends = [
+    "faiss-cpu==1.14.3",
+    "scikit-learn==1.9.0",
+    "scipy==1.17.0",
+    "torch==2.13.0; platform_system != 'Darwin' or platform_machine != 'x86_64'",
+]
 test = [
     "hypothesis>=6.163.0",
     "pytest>=9.1.1",
@@ -102,8 +108,15 @@ link-mode = "copy"
 required-version = ">=0.11.8,<0.12"
 
 [tool.uv.sources]
-# Temporary until benchmatrix 1.2.0 is visible from the configured package index.
-benchmatrix = { path = "../benchmatrix" }
+benchmatrix = { git = "https://github.com/ryancswallace/benchmatrix.git", rev = "109ecaa10ecd0fde23ce907aeebbb403f0d27bde" }  # pragma: allowlist secret
+torch = [
+    { index = "pytorch-cpu", marker = "platform_system != 'Darwin'" },
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [build-system]
 requires = ["hatchling>=1.31.0"]
