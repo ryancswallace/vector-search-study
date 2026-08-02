@@ -58,6 +58,9 @@ benchmark-backends = [
     "scipy==1.17.0",
     "torch==2.13.0; platform_system != 'Darwin' or platform_machine != 'x86_64'",
 ]
+analysis = [
+    "matplotlib>=3.11.1",
+]
 test = [
     "hypothesis>=6.163.0",
     "pytest>=9.1.1",
@@ -93,6 +96,7 @@ automation = [
     "nox>=2026.7.11",
 ]
 dev = [
+    { include-group = "analysis" },
     { include-group = "automation" },
     { include-group = "benchmark" },
     { include-group = "docs" },
@@ -173,7 +177,7 @@ packages = ["src/vector_search_study"]
 [tool.pytest.ini_options]
 minversion = "8.4"
 testpaths = ["tests"]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 empty_parameter_set_mark = "fail_at_collect"
 xfail_strict = true
 required_plugins = [

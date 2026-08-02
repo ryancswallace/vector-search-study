@@ -49,7 +49,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.pytest_filter:
         command.extend(("--", "-k", args.pytest_filter))
 
-    source_provenance = _source_provenance(Path.cwd())
+    source_provenance = source_provenance_record(Path.cwd())
     started = time.monotonic()
     completed = subprocess.run(command, check=False)
     elapsed_seconds = time.monotonic() - started
@@ -92,7 +92,7 @@ def _positive_int(value: str) -> int:
     return parsed
 
 
-def _source_provenance(root: Path) -> dict[str, object]:
+def source_provenance_record(root: Path) -> dict[str, object]:
     """Return revision, lock, and complete non-ignored source-tree digests."""
     revision = _git_output(root, "rev-parse", "HEAD").decode().strip()
     status = _git_output(root, "status", "--porcelain=v1").decode().splitlines()

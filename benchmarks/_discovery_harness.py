@@ -103,6 +103,23 @@ def discovery_config() -> BenchmarkConfig:
     )
 
 
+def tail_discovery_config() -> BenchmarkConfig:
+    """Build timing controls that satisfy the predeclared tail-sample policy."""
+    return BenchmarkConfig(
+        pedantic_rounds=_environment_nonnegative_int(
+            "VECTOR_SEARCH_BENCHMARK_TAIL_ROUNDS",
+            default=100,
+            positive=True,
+        ),
+        warmup_rounds=_environment_nonnegative_int("VECTOR_SEARCH_BENCHMARK_WARMUP_ROUNDS", default=2),
+        pedantic_iterations=1,
+        stream_progress=False,
+        before_benchmark=_before_benchmark,
+        validate_result=_validate_result,
+        after_benchmark=_after_benchmark,
+    )
+
+
 def install_discovery_tests(
     namespace: MutableMapping[str, object],
     specs: Iterable[WorkloadSpec],
@@ -116,16 +133,26 @@ def install_discovery_tests(
         implementations = _implementations(spec, memory_budget_bytes=memory_budget_bytes)
         if not implementations:
             continue
-        function = make_benchmark_test(
-            implementations,
-            [_case(spec)],
-            metrics=_metrics(spec),
-            config=resolved_config,
-        )
-        test_name = f"test_{_TEST_NAME_PATTERN.sub('_', spec.name)}"
-        function.__name__ = test_name
-        function.__qualname__ = test_name
-        namespace[test_name] = function
+        metrics = _metrics(spec)
+        central_metrics = tuple(metric for metric in metrics if metric != "tail_latency")
+        if central_metrics:
+            _install_test(
+                namespace,
+                spec,
+                implementations,
+                central_metrics,
+                resolved_config,
+                suffix="central",
+            )
+        if "tail_latency" in metrics:
+            _install_test(
+                namespace,
+                spec,
+                implementations,
+                (cast(MetricName, "tail_latency"),),
+                resolved_config if config is not None else tail_discovery_config(),
+                suffix="tail",
+            )
 
 
 def annotate_reference_metadata(output_json: object) -> None:
@@ -169,6 +196,28 @@ def reset_benchmark_runtime_state() -> None:
     _ACTIVE.clear()
     _CACHE.clear()
     _REFERENCE_METADATA.clear()
+
+
+def _install_test(
+    namespace: MutableMapping[str, object],
+    spec: WorkloadSpec,
+    implementations: dict[str, Callable[[WorkloadSpec], SearchResult]],
+    metrics: tuple[MetricName, ...],
+    config: BenchmarkConfig,
+    *,
+    suffix: str,
+) -> None:
+    """Install one metric-specific matrix for a workload."""
+    function = make_benchmark_test(
+        implementations,
+        [_case(spec)],
+        metrics=metrics,
+        config=config,
+    )
+    test_name = f"test_{_TEST_NAME_PATTERN.sub('_', spec.name)}_{suffix}"
+    function.__name__ = test_name
+    function.__qualname__ = test_name
+    namespace[test_name] = function
 
 
 def _target(implementation_name: str) -> Callable[[WorkloadSpec], SearchResult]:
