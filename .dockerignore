@@ -51,6 +51,7 @@ yarn-error.log*
 .coverage
 .coverage.*
 coverage.xml
+benchmark-results/
 build/
 dist/
 htmlcov/

@@ -15,7 +15,8 @@ ENV PATH="/app/.venv/bin:/usr/local/bin:${PATH}" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     UV_COMPILE_BYTECODE=1 \
-    UV_LINK_MODE=copy
+    UV_LINK_MODE=copy \
+    UV_PYTHON_DOWNLOADS=never
 
 WORKDIR /app
 
@@ -30,7 +31,8 @@ COPY pyproject.toml uv.lock README.md LICENSE ./
 COPY src ./src
 
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --no-editable
+    uv sync --python /usr/local/bin/python --locked --no-dev --no-editable \
+    && python -c "import encodings, sys; assert sys.base_prefix == '/usr/local'"
 
 FROM python-base AS runtime
 
@@ -52,7 +54,9 @@ COPY . .
 # This image only runs pytest. Keep type-checking and other development tools
 # out of it so their transitive runtimes do not expand the image attack surface.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-dev --group test \
+    uv sync --python /usr/local/bin/python --locked --no-dev \
+        --group analysis --group benchmark --group test \
+    && python -c "import encodings, sys; assert sys.base_prefix == '/usr/local'" \
     && chown -R app:app /app
 
 USER app
