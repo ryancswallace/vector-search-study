@@ -55,20 +55,20 @@ benchmark = [
 benchmark-backends = [
     "faiss-cpu==1.14.3",
     "scikit-learn==1.9.0",
-    "scipy==1.17.0",
+    "scipy==1.17.1",
     "torch==2.13.0; platform_system != 'Darwin' or platform_machine != 'x86_64'",
 ]
 analysis = [
     "matplotlib>=3.11.1",
 ]
 test = [
-    "hypothesis>=6.163.0",
+    "hypothesis>=6.164.0",
     "pytest>=9.1.1",
     "pytest-cov>=7.1.0",
 ]
 lint = [
     "pre-commit>=4.6.1",
-    "ruff>=0.16.0",
+    "ruff>=0.16.1",
 ]
 type = [
     "basedpyright>=1.39.9",
